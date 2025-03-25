@@ -32,21 +32,23 @@ bool word_parser(unsigned char* wordStart, int wordLength){
     return true;
 }
 
-unsigned char* datagram_stream(unsigned char* buff){
+char* datagram_stream(unsigned char* buff){
     unsigned char* letter = buff;
     if (*letter == ' ') return NULL;
     
-    const unsigned char* wordStart = letter;
+    unsigned char* wordStart = letter;
     int wordCount = 0, palindromCount = 0, wordLength = 0;
 
     while (*letter) {
         if (*letter == ' ') { // end of the word
             if (*(letter + 1) == ' ' || *(letter + 1) == '\0') // if two spaces together || space on the end -> ERROR
                 return NULL;
-            if (wordLength > 0 && word_parser((unsigned char*)wordStart, wordLength)) {
+            if (wordLength > 0 && word_parser(wordStart, wordLength)) { //word processing
                 wordCount++;
                 if (is_palindrom(wordStart, wordLength))
                     palindromCount++;
+            }else{
+                return NULL;
             }
             wordStart = letter + 1;
             wordLength = 0;
@@ -60,12 +62,14 @@ unsigned char* datagram_stream(unsigned char* buff){
         wordCount++;
         if (is_palindrom(wordStart, wordLength))
             palindromCount++;
+    }else{
+        return NULL;
     }
 
-    unsigned char* result = (unsigned char*)malloc(8);
+    char* result = malloc(22);
     if (!result) return NULL;
-    
-    sprintf((char*)result, "%d/%d", palindromCount, wordCount);
+
+    snprintf(result, 22, "%d/%d", palindromCount, wordCount);
     return result;
 }
 
@@ -92,32 +96,35 @@ int main(void) {
     }
 
     while (1) {
-        unsigned char buf[1024];
+        unsigned char buf[1025]={0};
         struct sockaddr_in clnt_addr;
         socklen_t clnt_addr_len = sizeof(clnt_addr);
 
-        cnt = recvfrom(sock, buf, sizeof(buf) - 1, 0, 
+        cnt = recvfrom(sock, buf, sizeof(buf), 0, 
                        (struct sockaddr*)&clnt_addr, &clnt_addr_len);
         if (cnt == -1) {
             perror("recvfrom");
-            return 1;
+            return -1;
         }
-        unsigned char send_buf[8];  // Zerujemy nowy bufor
-        memset(send_buf, 0, sizeof(send_buf));
+        unsigned char send_buf[8]={0};
         if(cnt==0){
             strcpy((char*)send_buf, "0/0");            
+        }else if (cnt > 1024) {
+            strcpy((char*)send_buf, "ERROR");
         }
         else{
-            buf[cnt] = '\0'; // Zapewnienie zakończenia ciągu znaków
-            unsigned char* result = datagram_stream(buf);
+            buf[cnt] = '\0';
+            char* result = datagram_stream(buf);
             if (!result) {
                 strcpy((char*)send_buf, "ERROR");
+                send_buf[sizeof(send_buf) - 1] = 0;
             } else {
-                strcpy((char*)send_buf, (char*)result);
+                strcpy((char*)send_buf, result);
+                send_buf[sizeof(send_buf) - 1] = 0;
                 free(result);
             }
         }
-        cnt = sendto(sock, send_buf, strlen((char*)send_buf) + 1, 0,
+        cnt = sendto(sock, send_buf, strlen((char*)send_buf), 0,
                     (struct sockaddr*)&clnt_addr, clnt_addr_len);
 
         if (cnt == -1) {
