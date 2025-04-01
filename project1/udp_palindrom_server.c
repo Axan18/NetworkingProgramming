@@ -73,6 +73,15 @@ char* datagram_stream(unsigned char* buff){
     return result;
 }
 
+bool containsZeroByte(unsigned char* buf, size_t length) {
+    for (size_t i = 0; i < length; i++) {
+        if (buf[i] == '\0') {
+            return true;
+        }
+    }
+    return false;
+}
+
 int main(void) {
     int sock, rc;
     ssize_t cnt;
@@ -109,7 +118,7 @@ int main(void) {
         unsigned char send_buf[8]={0};
         if(cnt==0){
             strcpy((char*)send_buf, "0/0");            
-        }else if (cnt > 1024) {
+        }else if (cnt > 1024 || containsZeroByte(buf,cnt)){
             strcpy((char*)send_buf, "ERROR");
         }
         else{
